@@ -1,6 +1,18 @@
 import cv2
 import numpy as np
 
+def is_object_near_grey(grey_contour, non_grey_contours, min_distance=30):
+    grey_x, grey_y, _, _ = cv2.boundingRect(grey_contour)
+    
+    for non_grey_contour in non_grey_contours:
+        non_grey_x, non_grey_y, _, _ = cv2.boundingRect(non_grey_contour)
+        distance = np.sqrt((grey_x - non_grey_x)**2 + (grey_y - non_grey_y)**2)
+        
+        if distance < min_distance:
+            return True
+    
+    return False
+
 # Open the camera stream
 camera = cv2.VideoCapture("http://192.168.1.215:8080/video?type=some.mjpeg")
 
@@ -13,8 +25,8 @@ upper_blue = np.array([130, 255, 255])
 lower_green = np.array([35, 100, 100])
 upper_green = np.array([85, 255, 255])
 
-lower_grey = np.array([0, 0, 50])
-upper_grey = np.array([180, 30, 220])
+lower_grey = np.array([0, 0, 80])
+upper_grey = np.array([180, 30, 180])
 
 while True:
     ret, frame = camera.read()
@@ -29,48 +41,47 @@ while True:
     mask_green = cv2.inRange(hsv, lower_green, upper_green)
     mask_grey = cv2.inRange(hsv, lower_grey, upper_grey)
 
-    # Color red objects and count rectangles
+    # Find contours for each color
     contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_blue, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_grey, _ = cv2.findContours(mask_grey, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     red_count = 0 
     for contour in contours_red:
-        if cv2.contourArea(contour) > 100:  
+        if cv2.contourArea(contour) > 100:
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            red_count += 1 #add to count of objects for every red object found
+            red_count += 1
 
-
-    contours_blue, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     blue_count = 0 
     for contour in contours_blue:
-        if cv2.contourArea(contour) > 100: 
+        if cv2.contourArea(contour) > 100:
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            blue_count += 1  # Increment count
+            blue_count += 1
 
-
-    contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    green_count = 0  # Reset count
+    green_count = 0 
     for contour in contours_green:
-        if cv2.contourArea(contour) > 100:  
+        if cv2.contourArea(contour) > 100:
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            green_count += 1  # Increment count
+            green_count += 1
 
-
-    contours_grey, _ = cv2.findContours(mask_grey, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    grey_count = 0  # Reset count
-    for contour in contours_grey:
-        if cv2.contourArea(contour) > 100:  
-            x, y, w, h = cv2.boundingRect(contour)
+    for grey_contour in contours_grey:
+        if cv2.contourArea(grey_contour) > 100:
+            x, y, w, h = cv2.boundingRect(grey_contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (128, 128, 128), 2)
-            grey_count += 1  # Increment count
-    # Display counts on the frame
-    cv2.putText(frame, f'Red: {red_count}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-    cv2.putText(frame, f'Blue: {blue_count}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-    cv2.putText(frame, f'Green: {green_count}', (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    cv2.putText(frame, f'Grey: {grey_count}', (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (128, 128, 128), 2)
 
-    #Dayeh u can add ur part here.
+            # Check if any non-grey object is close to the grey object
+            if is_object_near_grey(grey_contour, contours_red + contours_blue + contours_green):
+                cv2.putText(frame, 'Near Non-Grey', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+    # Display # of each object type on the frame
+    cv2.putText(frame, f'Red: {red_count}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+    cv2.putText(frame, f'Blue: {blue_count}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+    cv2.putText(frame, f'Green: {green_count}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    cv2.putText(frame, f'Grey: {len(contours_grey)}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
     cv2.imshow('frame', frame)
     
@@ -78,6 +89,4 @@ while True:
         break
 
 camera.release()
-
-# Close CV windows when infinite loop is exited (q is pressed or X)
 cv2.destroyAllWindows()
