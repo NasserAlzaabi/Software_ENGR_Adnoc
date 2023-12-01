@@ -28,16 +28,16 @@ class ArduinoController:
                     self.ser.write(command.encode())
                 processing_time = time.time() - start_time
 
-                # Adjust the delay based on the processing time
+                # reduce lag by minimizing sleep time to send signal
                 time.sleep(max(0.1 - processing_time, 0))
-        except serial.SerialException as e:
+        except serial.SerialException as e:           
             print(f"Error sending command: {e}")
 
     def user_input_thread(self):
         # Thread for handling user input
         while self.running:
             if self.user_input is not None:
-                # Send the command to Arduino based on user input
+                # Send the command to Arduino depending on user input
                 self.send_command(self.user_input)
                 self.user_input = None  # Reset user_input after sending the command
 
@@ -75,11 +75,11 @@ def is_object_near_grey(grey_contour, non_grey_contours, min_distance=50):
     return False
 
 try:
-    # Start the communication thread
+    # Start the communication thread between aduino and our program
     arduino_controller.start()
 
     # Open the camera stream
-    camera = cv2.VideoCapture("http://192.168.1.215:8080/video?type=some.mjpeg")
+    camera = cv2.VideoCapture("http://10.10.129.19:8080/video?type=some.mjpeg")
     frequency = 10
     last_update = time.time()
     last_update2= time.time()
@@ -151,9 +151,9 @@ try:
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (128, 128, 128), 2)
                 grey_count += 1
 
-                # Check if any non-grey object is close to the grey object
+                # Check if any non-grey object is close to the grey object (gas pump)
                 cur_time = time.time()
-                if cur_time - last_update2 >= 3:
+                if cur_time - last_update2 >= 1:
                     if is_object_near_grey(grey_contour, contours_red + contours_blue + contours_green):
                         cv2.putText(frame, 'Near Non-Grey', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
@@ -161,13 +161,12 @@ try:
                         if red_start is None:
                             red_start = cur_time
                         elif cur_time - red_start >= 8:
-                            arduino_controller.set_user_input("2")  # Command for yellow light
+                            arduino_controller.set_user_input("2")  # set to yellow light if red for more than 8 secs
                         else:
-                            arduino_controller.set_user_input("1")  # Command for red light
-
+                            arduino_controller.set_user_input("1")  # set to red light
                     else:
-                        arduino_controller.set_user_input("3")  # Command for no non-grey object near
-                        red_start = None  # Reset the timer when the object moves away
+                        arduino_controller.set_user_input("3")  # set to green if no object is near grey
+                        red_start = None  # Reset the timer when car leaves
                     last_update2 = cur_time
 
         total_count = red_count + blue_count + green_count
@@ -188,11 +187,11 @@ try:
 
         cv2.imshow('frame', frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'): #if q pressed exit program
             break
 
 finally:
-    # Stop the communication thread and close the serial port
+    # Stop the communication thread and end cv windows
     arduino_controller.stop()
     camera.release()
     cv2.destroyAllWindows()

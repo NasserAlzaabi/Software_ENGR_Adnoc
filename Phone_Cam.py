@@ -19,7 +19,7 @@ def is_object_near_grey(grey_contour, non_grey_contours, min_distance=30):
     return False
 
 # Open the camera stream
-camera = cv2.VideoCapture("http://192.168.1.215:8080/video?type=some.mjpeg")
+camera = cv2.VideoCapture("http://10.10.129.19:8080/video?type=some.mjpeg")
 
 lower_red = np.array([0, 100, 100])
 upper_red = np.array([10, 255, 255])
@@ -32,6 +32,8 @@ upper_green = np.array([85, 255, 255])
 
 lower_grey = np.array([0, 0, 60])
 upper_grey = np.array([180, 30, 140])
+# lower_grey = np.array([0], dtype=np.uint8)
+# upper_grey = np.array([70], dtype=np.uint8)
 
 green_time = 1
 blue_time = 2
